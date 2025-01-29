@@ -4,7 +4,7 @@ import numpy as np
 # Read the CSV file
 df = pd.read_csv('House_Data.csv')
 
-# Step 1: Delete all duplicate data
+# Step 1: Delete all duplicated data
 df = df.drop_duplicates()
 
 # Step 2: Delete all null data
@@ -25,7 +25,7 @@ numerical_columns = df.select_dtypes(include=[np.number]).columns
 for column in numerical_columns:
     df = remove_outliers(df, column)
 
-# Save the cleaned data to a new CSV file
+# Saving the cleaned data to a new CSV file named Cleaned_House_Data
 df.to_csv('Cleaned_House_Data.csv', index=False)
 
 print("Data cleaning completed. Cleaned data saved to 'Cleaned_House_Data File.csv'")

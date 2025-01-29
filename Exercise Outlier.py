@@ -1,38 +1,31 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 
-# Load the dataset
-data = pd.read_csv('House_Data.csv')
+# Read the CSV file
+df = pd.read_csv('House_Data.csv')
 
-# 1. Handle Missing Values
-# Fill missing values with the mean for numerical columns and mode for categorical columns
-data.fillna({
-    'price': data['price'].mean(),  # Example for numerical
-    'society': data['society'].mode()[0]  # Example for categorical
-}, inplace=True)
+# Step 1: Delete all duplicate data
+df = df.drop_duplicates()
 
-# 2. Detecting Outliers
-# Using IQR method to detect outliers
-Q1 = data['price'].quantile(0.25)
-Q3 = data['price'].quantile(0.75)
-IQR = Q3 - Q1
+# Step 2: Delete all null data
+df = df.dropna()
 
-# Define bounds for outliers
-lower_bound = Q1 - 1.5 * IQR
-upper_bound = Q3 + 1.5 * IQR
+# Step 3: Delete all outlier data
+# Assuming we're using the Interquartile Range (IQR) method for outlier detection
+def remove_outliers(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
 
-# 3. Delete Duplicate Data
-data.drop_duplicates(inplace=True)
+# Apply outlier removal to numerical columns
+numerical_columns = df.select_dtypes(include=[np.number]).columns
+for column in numerical_columns:
+    df = remove_outliers(df, column)
 
-# 4. Delete Null
-data.dropna(inplace=True)
+# Save the cleaned data to a new CSV file
+df.to_csv('Cleaned_House_Data.csv', index=False)
 
-# 5. Delete Outliers
-data = data[(data['price'] >= lower_bound) & (data['price'] <= upper_bound)]
-
-# Save the cleaned data
-data.to_csv('Cleaned_House_Data.csv', index=False)
-
-print("Data cleaning completed. Cleaned data saved as 'Cleaned_House_Data.csv'.")
+print("Data cleaning completed. Cleaned data saved to 'Cleaned_House_Data File.csv'")

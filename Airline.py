@@ -12,6 +12,7 @@ import xgboost as xgb
 
 # Deep Learning Models
 import tensorflow as tf
+from tensorflow import keras
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, LSTM, Dropout
 
@@ -42,12 +43,12 @@ X_test, y_test = test[['Passengers_Lag1']], test['Passengers']
 
 # Scale data for LSTM
 scaler = MinMaxScaler()
-train_scaled = scaler.fit_transform(train[['Passengers']])
-test_scaled = scaler.transform(test[['Passengers']])
+train_scaled = scaler.fit_transform(train[['Passengers', 'Passengers_Lag1']])
+test_scaled = scaler.transform(test[['Passengers', 'Passengers_Lag1']])
 
 # Reshape for LSTM
-X_train_lstm, y_train_lstm = train_scaled[:-1], train_scaled[1:]
-X_test_lstm, y_test_lstm = test_scaled[:-1], test_scaled[1:]
+X_train_lstm, y_train_lstm = train_scaled[:, 1:], train_scaled[:, 0]
+X_test_lstm, y_test_lstm = test_scaled[:, 1:], test_scaled[:, 0]
 
 X_train_lstm = X_train_lstm.reshape((X_train_lstm.shape[0], 1, 1))
 X_test_lstm = X_test_lstm.reshape((X_test_lstm.shape[0], 1, 1))
@@ -69,9 +70,10 @@ lstm_model = Sequential([
     Dense(1)
 ])
 lstm_model.compile(optimizer='adam', loss='mse')
-lstm_model.fit(X_train_lstm, y_train_lstm, epochs=50, verbose=0, batch_size=1)
+lstm_model.fit(X_train_lstm, y_train_lstm, epochs=50, verbose=1, batch_size=32, validation_split=0.2)
+
 y_pred_lstm = lstm_model.predict(X_test_lstm)
-y_pred_lstm = scaler.inverse_transform(y_pred_lstm)
+y_pred_lstm = scaler.inverse_transform(np.concatenate((y_pred_lstm, X_test_lstm.reshape(-1, 1)), axis=1))[:, 0]
 
 # ANN Model
 ann_model = Sequential([
@@ -100,7 +102,7 @@ def evaluate_model(y_true, y_pred, model_name):
 # Evaluate All Models
 evaluate_model(y_test, y_pred_lr, "Linear Regression")
 evaluate_model(y_test, y_pred_xgb, "XGBoost")
-# evaluate_model(y_test, y_pred_lstm.flatten(), "LSTM") # activity : Check the code for LSTM
+evaluate_model(y_test, y_pred_lstm, "LSTM")
 evaluate_model(y_test, y_pred_ann.flatten(), "ANN")
 evaluate_model(y_test, y_pred_arima, "ARIMA")
 
@@ -109,9 +111,9 @@ plt.figure(figsize=(12,6))
 plt.plot(y_test.index, y_test, label="Actual")
 plt.plot(y_test.index, y_pred_lr, label="Linear Regression", linestyle="dashed")
 plt.plot(y_test.index, y_pred_xgb, label="XGBoost", linestyle="dashed")
-# plt.plot(y_test.index, y_pred_lstm.flatten(), label="LSTM", linestyle="dashed")
+plt.plot(y_test.index, y_pred_lstm, label="LSTM", linestyle="dashed")
 plt.plot(y_test.index, y_pred_ann.flatten(), label="ANN", linestyle="dashed")
 plt.plot(y_test.index, y_pred_arima, label="ARIMA", linestyle="dashed")
 plt.legend()
-plt.title("Model Predictions vs Actual")
+plt.title("Model Predictions vs Actual by Nikki Alonzo")
 plt.show()

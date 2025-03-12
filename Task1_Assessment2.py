@@ -1,115 +1,83 @@
+# Importing necessary libraries
 import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression, LogisticRegression
-from sklearn.cluster import KMeans
-from sklearn.metrics import (mean_squared_error, r2_score, accuracy_score, 
-                             classification_report, silhouette_score)
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import StandardScaler
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.metrics import (mean_squared_error, r2_score,
+                             accuracy_score, precision_score,
+                             recall_score, confusion_matrix,
+                             ConfusionMatrixDisplay)
 
-# Constants
-DATASET_URL = "D:\Programs\VSCode-GitHub\DataAnalytics\dataset for assignment 2.csv"
-TEST_SIZE = 0.2
-RANDOM_STATE = 42
+# Load the dataset
+dataset = pd.read_csv('D:\Programs\VSCode-GitHub\DataAnalytics\dataset for assignment 2.csv')
 
-def load_data(url):
-    """Load the dataset from the given URL."""
-    try:
-        df = pd.read_csv(url)
-        print("Dataset loaded successfully.")
-        print("Columns in the dataset:", df.columns.tolist())
-        return df
-    except Exception as e:
-        print(f"Error loading dataset: {e}")
-        exit()
+# Exploratory Data Analysis (EDA)
+print(dataset.describe(include='all'))
 
-def preprocess_data(df):
-    """Preprocess the data: clean column names, encode categorical variables, and handle missing values."""
-    # Clean up column names
-    df.columns = df.columns.str.strip()
+# Visualizing distributions with Histograms
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+sns.histplot(dataset['App Sessions'], bins=30, ax=axes[0])
+axes[0].set_title('Histogram of App Sessions')
 
-    # Convert categorical variables into numeric
-    df["Gender"] = df["Gender"].map({"Male": 0, "Female": 1})
-    df["Activity Level"] = df["Activity Level"].map({"Sedentary": 0, "Moderate": 1, "Active": 2})
-    df["Location"] = df["Location"].map({"Urban": 0, "Suburban": 1, "Rural": 2})
+sns.histplot(dataset['Distance Travelled (km)'], bins=30, ax=axes[1])
+axes[1].set_title('Histogram of Distance Travelled (km)')
 
-    # Check for missing values and handle them
-    if df.isnull().sum().any():
-        df.fillna(df.mean(), inplace=True)  # Fill missing values with mean
-        print("Missing values found and filled with mean.")
+sns.histplot(dataset['Calories Burned'], bins=30, ax=axes[2])
+axes[2].set_title('Histogram of Calories Burned')
 
-    return df
+plt.tight_layout()
+plt.show()
 
-def perform_regression_analysis(X, y):
-    """Perform regression analysis and print results."""
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE)
+# Boxplot for App Sessions
+plt.figure(figsize=(6, 5))
+sns.boxplot(y=dataset['App Sessions'])
+plt.title('Boxplot of App Sessions')
+plt.show()
 
-    reg_model = LinearRegression()
-    reg_model.fit(X_train, y_train)
+# Prepare data for modeling
+X = pd.get_dummies(dataset[['Age', 'Gender', 'Activity Level', 'Location', 'Distance Travelled (km)', 'Calories Burned']],
+                   columns=['Gender', 'Activity Level', 'Location'])
+y_regression = dataset['App Sessions']
 
-    y_pred = reg_model.predict(X_test)
+# Regression Model
+X_train_reg, X_test_reg, y_train_reg, y_test_reg = train_test_split(X, y_regression, test_size=0.2, random_state=42)
+regressor = RandomForestRegressor(random_state=42)
+regressor.fit(X_train_reg, y_train_reg)
+y_pred_reg = regressor.predict(X_test_reg)
 
-    print("\nRegression Analysis:")
-    print("Coefficients:", reg_model.coef_)
-    print("Intercept:", reg_model.intercept_)
-    print("Mean Squared Error:", mean_squared_error(y_test, y_pred))
-    print("R-squared:", r2_score(y_test, y_pred))
+# Regression Model Evaluation
+mse = mean_squared_error(y_test_reg, y_pred_reg)
+r2 = r2_score(y_test_reg, y_pred_reg)
+print(f'MSE: {mse}, R²: {r2}')
 
-def perform_clustering(X, df):
-    """Perform clustering analysis and visualize clusters."""
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+# Feature importance visualization
+feature_importances = pd.Series(regressor.feature_importances_, index=X.columns).sort_values(ascending=False)
+plt.figure(figsize=(10, 6))
+sns.barplot(x=feature_importances, y=feature_importances.index)
+plt.title('Feature Importances in Regression Model')
+plt.show()
 
-    kmeans = KMeans(n_clusters=3, random_state=RANDOM_STATE)
-    df["Cluster"] = kmeans.fit_predict(X_scaled)
+# Classification Model (categorizing app sessions)
+bins = [0, 90, 150, dataset['App Sessions'].max()]
+labels = ['Low', 'Medium', 'High']
+dataset['App Usage Category'] = pd.cut(dataset['App Sessions'], bins=bins, labels=labels, include_lowest=True)
 
-    print("\nClustering Analysis:")
-    print("Cluster Centers:\n", kmeans.cluster_centers_)
-    print("Silhouette Score:", silhouette_score(X_scaled, kmeans.labels_))
+y_classification = dataset['App Usage Category']
+X_train_cls, X_test_cls, y_train_cls, y_test_cls = train_test_split(X, y_classification, test_size=0.2, random_state=42)
+classifier = RandomForestClassifier(random_state=42)
+classifier.fit(X_train_cls, y_train_cls)
+y_pred_cls = classifier.predict(X_test_cls)
 
-    # Visualize Clusters
-    plt.figure(figsize=(10, 6))
-    plt.scatter(X_scaled[:, 0], X_scaled[:, 1], c=df["Cluster"], cmap="viridis", marker='o')
-    plt.title("User Clusters")
-    plt.xlabel("Feature 1: Gender (0: Male, 1: Female)")
-    plt.ylabel("Feature 2: Age (Standardized)")
-    plt.colorbar(label='Cluster')
-    plt.show()
+# Classification Model Evaluation
+accuracy = accuracy_score(y_test_cls, y_pred_cls)
+precision = precision_score(y_test_cls, y_pred_cls, average='weighted')
+recall = recall_score(y_test_cls, y_pred_cls, average='weighted')
+print(f'Accuracy: {accuracy}, Precision: {precision}, Recall: {recall}')
 
-def perform_predictive_modeling(X, y):
-    """Perform predictive modeling and print results."""
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE)
-
-    clf = LogisticRegression()
-    clf.fit(X_train, y_train)
-
-    y_pred = clf.predict(X_test)
-
-    print("\nPredictive Modeling:")
-    print("Accuracy:", accuracy_score(y_test, y_pred))
-    print("Classification Report:\n", classification_report(y_test, y_pred))
-
-def main():
-    # Step 1: Load the dataset
-    df = load_data(DATASET_URL)
-
-    # Step 2: Preprocessing
-    df = preprocess_data(df)
-
-    # Step 3: Regression Analysis
-    X_reg = df[["Gender", "Age", "Activity Level", "Location", "Distance Travelled (km)", "Calories Burned"]]  # Corrected column name
-    y_reg = df["App Sessions"]
-    perform_regression_analysis(X_reg, y_reg)
-
-    # Step 4: Clustering
-    perform_clustering(X_reg, df)  # Pass df as an argument
-
-    # Step 5: Predictive Modeling
-    df["High Engagement"] = (df["App Sessions"] > 100).astype(int)
-    X_clf = df[["Gender", "Age", "Activity Level", "Location", "Distance Travelled (km)", "Calories Burned"]]  # Corrected column name
-    y_clf = df["High Engagement"]
-    perform_predictive_modeling(X_clf, y_clf)
-
-if __name__ == "__main__":
-    main()
+# Confusion Matrix
+cm = confusion_matrix(y_test_cls, y_pred_cls, labels=labels)
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+disp.plot(cmap='Blues')
+plt.title('Confusion Matrix (Classification Model)')
+plt.show()

@@ -10,7 +10,7 @@ from sklearn.metrics import (mean_squared_error, r2_score,
                              ConfusionMatrixDisplay)
 
 # Load the dataset
-dataset = pd.read_csv('D:\Programs\VSCode-GitHub\DataAnalytics\dataset for assignment 2.csv')
+dataset = pd.read_csv('/Users/nikkialonzo/Documents/GitHub/DataAnalytics/DataAnalytics/dataset for assignment 2.csv')
 
 # Exploratory Data Analysis (EDA)
 print(dataset.describe(include='all'))

@@ -1,83 +1,112 @@
-# Importing necessary libraries
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.metrics import (mean_squared_error, r2_score,
-                             accuracy_score, precision_score,
-                             recall_score, confusion_matrix,
-                             ConfusionMatrixDisplay)
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.cluster import KMeans
+from sklearn.metrics import mean_squared_error, silhouette_score, r2_score
 
-# Load the dataset
-dataset = pd.read_csv('/Users/nikkialonzo/Documents/GitHub/DataAnalytics/DataAnalytics/dataset for assignment 2.csv')
+# Load the dataset from a file path
+file_path = input("Enter the path to your dataset file (e.g., '/path/to/dataset.csv'): ")
+dataset = pd.read_csv(file_path)
+
+# Display basic information about the dataset
+print("Dataset Overview:")
+print(dataset.info())
+print("\nFirst 5 rows of the dataset:")
+print(dataset.head())
+
+# Handle missing values (if any)
+print("\nHandling Missing Values...")
+dataset.fillna(method='ffill', inplace=True)  # Forward fill as an example
+print("Missing values handled.")
 
 # Exploratory Data Analysis (EDA)
-print(dataset.describe(include='all'))
+print("\nPerforming Exploratory Data Analysis...")
+print("Summary Statistics:")
+print(dataset.describe())
 
-# Visualizing distributions with Histograms
-fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-sns.histplot(dataset['App Sessions'], bins=30, ax=axes[0])
-axes[0].set_title('Histogram of App Sessions')
+# Visualize correlations between numeric features only
+plt.figure(figsize=(10, 8))
 
-sns.histplot(dataset['Distance Travelled (km)'], bins=30, ax=axes[1])
-axes[1].set_title('Histogram of Distance Travelled (km)')
-
-sns.histplot(dataset['Calories Burned'], bins=30, ax=axes[2])
-axes[2].set_title('Histogram of Calories Burned')
-
-plt.tight_layout()
+# Select only numeric columns for correlation
+numeric_data = dataset.select_dtypes(include=[np.number])  # Select numeric columns
+sns.heatmap(numeric_data.corr(), annot=True, cmap="coolwarm", fmt=".2f")
+plt.title("Correlation Heatmap")
 plt.show()
 
-# Boxplot for App Sessions
-plt.figure(figsize=(6, 5))
-sns.boxplot(y=dataset['App Sessions'])
-plt.title('Boxplot of App Sessions')
+# Distribution of App Sessions
+sns.histplot(dataset['App Sessions'], kde=True)
+plt.title("Distribution of App Sessions")
+plt.xlabel("App Sessions")
+plt.ylabel("Frequency")
 plt.show()
 
-# Prepare data for modeling
-X = pd.get_dummies(dataset[['Age', 'Gender', 'Activity Level', 'Location', 'Distance Travelled (km)', 'Calories Burned']],
-                   columns=['Gender', 'Activity Level', 'Location'])
-y_regression = dataset['App Sessions']
+# Scatter plot for Distance Travelled vs Calories Burned
+plt.figure(figsize=(8, 6))
+sns.scatterplot(x='Distance Travelled (km)', y='Calories Burned', data=dataset, hue='Activity Level')
+plt.title("Distance Travelled vs Calories Burned")
+plt.xlabel("Distance Travelled (km)")
+plt.ylabel("Calories Burned")
+plt.show()
 
-# Regression Model
-X_train_reg, X_test_reg, y_train_reg, y_test_reg = train_test_split(X, y_regression, test_size=0.2, random_state=42)
+# Feature Engineering
+print("\nCreating new features...")
+dataset['Calories_per_Session'] = dataset['Calories Burned'] / dataset['App Sessions']
+dataset['Distance_per_Session'] = dataset['Distance Travelled (km)'] / dataset['App Sessions']
+print("New features created.")
+
+# Select features and target for regression
+features = ['Age', 'App Sessions', 'Distance Travelled (km)', 'Calories Burned', 'Calories_per_Session', 'Distance_per_Session']
+target = 'Calories Burned'
+
+X = dataset[features]
+y = dataset[target]
+
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Regression Model: Random Forest Regressor
+print("\nBuilding Regression Model...")
 regressor = RandomForestRegressor(random_state=42)
-regressor.fit(X_train_reg, y_train_reg)
-y_pred_reg = regressor.predict(X_test_reg)
+regressor.fit(X_train, y_train)
+y_pred = regressor.predict(X_test)
 
-# Regression Model Evaluation
-mse = mean_squared_error(y_test_reg, y_pred_reg)
-r2 = r2_score(y_test_reg, y_pred_reg)
-print(f'MSE: {mse}, R²: {r2}')
+# Evaluate Regression Model
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+print(f"Mean Squared Error (MSE): {mse}")
+print(f"R-squared (R2): {r2}")
 
-# Feature importance visualization
-feature_importances = pd.Series(regressor.feature_importances_, index=X.columns).sort_values(ascending=False)
-plt.figure(figsize=(10, 6))
-sns.barplot(x=feature_importances, y=feature_importances.index)
-plt.title('Feature Importances in Regression Model')
+# Clustering: KMeans to identify user groups
+print("\nPerforming Clustering...")
+clustering_features = ['Age', 'App Sessions', 'Distance Travelled (km)', 'Calories Burned']
+kmeans = KMeans(n_clusters=3, random_state=42)
+clusters = kmeans.fit_predict(dataset[clustering_features])
+
+# Add cluster labels to the dataset
+dataset['Cluster'] = clusters
+
+# Evaluate Clustering with Silhouette Score
+silhouette_avg = silhouette_score(dataset[clustering_features], clusters)
+print(f"Silhouette Score: {silhouette_avg}")
+
+# Visualize Clusters
+plt.figure(figsize=(8, 6))
+sns.scatterplot(x='Distance Travelled (km)', y='Calories Burned', hue=dataset['Cluster'], palette='viridis')
+plt.title("Clustering of Users")
+plt.xlabel("Distance Travelled (km)")
+plt.ylabel("Calories Burned")
+plt.legend(title="Cluster")
 plt.show()
 
-# Classification Model (categorizing app sessions)
-bins = [0, 90, 150, dataset['App Sessions'].max()]
-labels = ['Low', 'Medium', 'High']
-dataset['App Usage Category'] = pd.cut(dataset['App Sessions'], bins=bins, labels=labels, include_lowest=True)
+# Save the modified dataset with clusters
+dataset.to_csv('clustered_dataset.csv', index=False)
+print("Clustered dataset saved as 'clustered_dataset.csv'.")
 
-y_classification = dataset['App Usage Category']
-X_train_cls, X_test_cls, y_train_cls, y_test_cls = train_test_split(X, y_classification, test_size=0.2, random_state=42)
-classifier = RandomForestClassifier(random_state=42)
-classifier.fit(X_train_cls, y_train_cls)
-y_pred_cls = classifier.predict(X_test_cls)
-
-# Classification Model Evaluation
-accuracy = accuracy_score(y_test_cls, y_pred_cls)
-precision = precision_score(y_test_cls, y_pred_cls, average='weighted')
-recall = recall_score(y_test_cls, y_pred_cls, average='weighted')
-print(f'Accuracy: {accuracy}, Precision: {precision}, Recall: {recall}')
-
-# Confusion Matrix
-cm = confusion_matrix(y_test_cls, y_pred_cls, labels=labels)
-disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
-disp.plot(cmap='Blues')
-plt.title('Confusion Matrix (Classification Model)')
-plt.show()
+# Implications for Software Engineering Decision-Making
+print("\nImplications:")
+print("1. Regression analysis helps predict user calorie burn based on app usage.")
+print("2. Clustering identifies distinct user groups for targeted feature development.")
+print("3. Insights from these analyses can guide personalized app experiences, improve user retention, and prioritize development efforts.")

@@ -1,0 +1,4 @@
+User ID,Gender,Age,Activity Level,Location,App Sessions,Distance Travelled (km),Calories Burned,Calories_per_Session,Distance_per_Session
+1699,Male,34,Active,Suburban,198,102,975,4.924242424242424,0.5151515151515151
+2649,Male,18,Active,Urban,199,163,980,4.924623115577889,0.8190954773869347
+3662,Female,43,Active,Urban,198,177,987,4.984848484848484,0.8939393939393939

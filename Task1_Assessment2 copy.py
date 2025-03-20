@@ -21,7 +21,7 @@ def load_dataset(file_path):
         return None
 
 # Load the dataset
-dataset_path = '/Users/nikkialonzo/Documents/GitHub/DataAnalytics/DataAnalytics/dataset for assignment 2.csv'
+dataset_path = 'D:\Programs\VSCode-GitHub\DataAnalytics\dataset for assignment 2.csv'
 dataset = load_dataset(dataset_path)
 
 # Check for missing values
